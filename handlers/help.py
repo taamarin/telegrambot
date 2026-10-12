@@ -57,7 +57,6 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 ❀ /start — Memulai bot dan menampilkan menu bantuan.
 ❀ /help — Menampilkan menu bantuan.
 ❀ /ask — Bertanya kepada AI.
-❀ /dpost — Mengunduh postingan dari Instagram.
 ❀ /xray — Konversi konfigurasi outbound Xray.
 ❀ /clash — Konversi konfigurasi outbound Clash.
 ❀ /cbfr — Konversi ke konfigurasi BFR (Clash).

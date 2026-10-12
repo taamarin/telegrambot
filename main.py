@@ -9,7 +9,6 @@ from handlers.info import info_menu, info_callback_handler
 from handlers.stats import handle_botinfo
 from handlers.restart import restart
 from handlers.bash import handle_bash
-from handlers.post import handle_post
 from handlers.hostip import hostip
 from handlers.broadcast import handle_broadcast
 from handlers.yaml_checker import handle_checkyaml
@@ -60,7 +59,6 @@ def create_application():
     application.add_handler(CommandHandler("xray", handle_xray))
     application.add_handler(CommandHandler("yaml", handle_checkyaml))
     application.add_handler(CommandHandler("sh", handle_bash))
-    application.add_handler(CommandHandler("dpost", handle_post))
     application.add_handler(CommandHandler("hostip", hostip))
     application.add_handler(CommandHandler("broadcast", handle_broadcast))
     application.add_handler(CommandHandler("tcp", tcp_command))
