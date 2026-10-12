@@ -4,6 +4,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 from handlers.message_moderation import init_db as init_limit_db, register_limit_handlers
 from handlers.user_store import init_db as init_user_db, add_user, add_chat
 from handlers.help import handle_help, help_callback
+from handlers.ask import handle_ask
 from handlers.info import info_menu, info_callback_handler
 from handlers.stats import handle_botinfo
 from handlers.restart import restart
@@ -45,6 +46,7 @@ def create_application():
     application.add_handler(CommandHandler("start", handle_help))
     application.add_handler(CommandHandler("stats", handle_botinfo))
     application.add_handler(CommandHandler("help", handle_help))
+    application.add_handler(CommandHandler("ask", handle_ask))
     application.add_handler(CommandHandler("restart", restart))
     application.add_handler(CommandHandler("upload", upload))
     application.add_handler(CommandHandler("sing", handle_sing))
