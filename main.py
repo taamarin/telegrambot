@@ -1,13 +1,12 @@
-import asyncio
-import nest_asyncio
+import os
+
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from handlers.aa import init_db, register_limit_handlers
+from handlers.aa import init_db as init_limit_db, register_limit_handlers
+from handlers.user_store import init_db as init_user_db, add_user, add_chat
 
-# == Config ==
-TOKEN = ""
-NOTIFICATION_CHAT_ID = ""
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+NOTIFICATION_CHAT_ID = os.getenv("NOTIFICATION_CHAT_ID")
 
-# == Handlers lain ==
 from handlers.help import handle_help, help_callback
 from handlers.info import info_menu, info_callback_handler
 from handlers.stats import handle_botinfo
@@ -21,7 +20,6 @@ from handlers.github import upload
 from handlers.tcp import tcp_command, button_handler
 from handlers.download import download_command
 from handlers.dashboard import button_dashboard, start_dashboard
-from handlers.user_store import add_user, add_chat
 from handlers.clash import convert_handler
 from handlers.clash_bfr import template_handler
 from handlers.flclash import template_flclash_handler
@@ -33,10 +31,18 @@ from handlers.sing_sfa import handle_sfa
 from handlers.xray import handle_xray
 from handlers.xbox import handle_box, handle_box_callback
 
-async def start_bot():
-    application = Application.builder().token(TOKEN).build()
 
-    # Command handlers (dipotong biar ringkas)
+async def notify_startup(application):
+    if NOTIFICATION_CHAT_ID:
+        await application.bot.send_message(
+            chat_id=NOTIFICATION_CHAT_ID,
+            text="bot is running!!",
+        )
+
+
+def create_application():
+    application = Application.builder().token(TOKEN).post_init(notify_startup).build()
+
     application.add_handler(CommandHandler("start", handle_help))
     application.add_handler(CommandHandler("stats", handle_botinfo))
     application.add_handler(CommandHandler("help", handle_help))
@@ -62,17 +68,17 @@ async def start_bot():
     application.add_handler(CommandHandler("xclash", handle_box))
     application.add_handler(CommandHandler("info", info_menu))
 
-    # CallbackQuery handlers
     application.add_handler(CallbackQueryHandler(help_callback, pattern="^help_|contact_admin|donate"))
     application.add_handler(CallbackQueryHandler(info_callback_handler, pattern="^info_"))
     application.add_handler(CallbackQueryHandler(handle_box_callback, pattern=r"^box_(status|restart|ceks|upk)$"))
     application.add_handler(CallbackQueryHandler(button_handler, pattern="^(set_westwood|set_bbr|cek_aktif|cek_tersedia)$"))
     application.add_handler(CallbackQueryHandler(button_dashboard))
 
-    # Tracking chat & user
     async def track_chat(update, context: ContextTypes.DEFAULT_TYPE):
         chat = update.effective_chat
-        add_chat(chat.id, chat.type)
+        if chat:
+            add_chat(chat.id, chat.type)
+
     application.add_handler(MessageHandler(filters.ALL, track_chat), group=-2)
 
     async def register_user(update, context: ContextTypes.DEFAULT_TYPE):
@@ -80,21 +86,18 @@ async def start_bot():
             add_user(update.effective_user.id)
     application.add_handler(MessageHandler(filters.ALL, register_user), group=-1)
 
-    # ✅ Daftarkan filter dari limit.py
     register_limit_handlers(application)
+    return application
 
-    await application.bot.send_message(chat_id=NOTIFICATION_CHAT_ID, text="bot is running!!")
-    await application.run_polling(drop_pending_updates=True)
 
 def run_bot():
-    import sys
-    try:
-        nest_asyncio.apply()
-        init_db()
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(start_bot())
-    except Exception as e:
-        print(f"Bot dihentikan: {e}", file=sys.stderr)
+    if not TOKEN:
+        raise RuntimeError("Set the TELEGRAM_BOT_TOKEN environment variable.")
+
+    init_limit_db()
+    init_user_db()
+    application = create_application()
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     run_bot()
