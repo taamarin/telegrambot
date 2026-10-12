@@ -1,44 +1,61 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CallbackQueryHandler
+from telegram.ext import ContextTypes
 
 from handlers.user_store import increment_interaction
-increment_interaction()
 
-# Fungsi utama untuk /help
-async def handle_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+def _help_menu() -> InlineKeyboardMarkup:
     keyboard = [
         [
-            InlineKeyboardButton("User Commands", callback_data='help_user'),
-            InlineKeyboardButton("Admin Commands", callback_data='help_admin'),
+            InlineKeyboardButton("User Commands", callback_data="help_user"),
+            InlineKeyboardButton("Admin Commands", callback_data="help_admin"),
         ],
         [
-            InlineKeyboardButton("Donat", callback_data='donate'),
-            InlineKeyboardButton("Hub Admin", callback_data='contact_admin')
-        ]
+            InlineKeyboardButton("Donasi", callback_data="donate"),
+            InlineKeyboardButton("Hubungi Admin", callback_data="contact_admin"),
+        ],
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(keyboard)
 
-    user = update.effective_user
-    name = f"@{user.username}" if user.username else user.first_name
 
-    await update.message.reply_text(
-        f"{name}, Silakan pilih kategori bantuan yang ingin Anda lihat:",
-        reply_markup=reply_markup
+def _back_button() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("⬅️ Kembali", callback_data="help_menu")]]
     )
 
-# Fungsi callback saat tombol ditekan
+
+async def handle_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    increment_interaction()
+
+    user = update.effective_user
+    if user and user.username:
+        name = f"@{user.username}"
+    elif user and user.first_name:
+        name = user.first_name
+    else:
+        name = "Pengguna"
+
+    await update.effective_message.reply_text(
+        f"{name}, Silakan pilih kategori bantuan yang ingin Anda lihat:",
+        reply_markup=_help_menu(),
+    )
+
+
 async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
 
-# ❀ /worker — Mendapatkan akun VPN (Cloudflare Worker).
-# ❀ /prayer — Menampilkan jadwal salat berdasarkan lokasi.
-# ❀ /cuaca — Menampilkan informasi cuaca terkini.
-
-    if query.data == 'help_user':
+    if query.data == "help_menu":
+        await query.edit_message_text(
+            "Silakan pilih kategori bantuan yang ingin Anda lihat:",
+            reply_markup=_help_menu(),
+        )
+        return
+    if query.data == "help_user":
         text = """
 <b>User Commands</b>
-❀ /start — Memulai bot dan menampilkan pesan sambutan.
+❀ /start — Memulai bot dan menampilkan menu bantuan.
+❀ /help — Menampilkan menu bantuan.
 ❀ /ask — Bertanya kepada AI.
 ❀ /dpost — Mengunduh postingan dari Instagram.
 ❀ /xray — Konversi konfigurasi outbound Xray.
@@ -49,27 +66,34 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 ❀ /cmfa — Konversi ke konfigurasi CMFA.
 ❀ /sing — Konversi konfigurasi outbound Sing-box.
 ❀ /sfa — Konversi ke konfigurasi Sing-box (Android).
-❀ /yaml — Pemeriksa dan validasi file YAML.
+❀ /yaml — Memeriksa dan memvalidasi file YAML.
 ❀ /hostip — Menampilkan IP dari sebuah domain.
 ❀ /upload — Mengunggah file ikon untuk Zashboard.
-❀ /revclash — Mengubah konfigurasi Clash (YAML) menjadi URL V2Ray (vmess, vless, trojan, dll).
+❀ /revclash — Mengubah konfigurasi Clash (YAML) menjadi URL V2Ray.
 """
-    elif query.data == 'help_admin':
+    elif query.data == "help_admin":
         text = """
 <b>Admin Commands</b>
-❀ /info — Menampilkan informasi tentang bot.
+❀ /stats — Menampilkan statistik bot.
 ❀ /sh — Menjalankan perintah bash di server.
 ❀ /xclash — Menampilkan status dan opsi restart untuk Clash.
-❀ /tcp — Menampilkan opsi pengaturan algoritma TCP"
+❀ /tcp — Mengatur algoritma TCP.
 ❀ /restart — Memulai ulang bot.
 ❀ /down — Mengunduh file dari URL.
-❀ /yacd — Kontrol Dashboard Clash.
+❀ /yacd — Membuka kontrol Dashboard Clash.
+❀ /info — Menampilkan informasi tentang bot.
+❀ /broadcast — Mengirim pesan siaran.
 """
-    elif query.data == 'donate':
-        text = 'support ke: <a href="https://saweria.co/taamarin">Saweria</a>\nTerimakasih.'
-    elif query.data == 'contact_admin':
-        text = "@taamarin"
+    elif query.data == "donate":
+        text = 'Dukung bot melalui <a href="https://saweria.co/taamarin">Saweria</a>. Terima kasih!'
+    elif query.data == "contact_admin":
+        text = "Admin: @taamarin"
     else:
-        text = "Unknown command."
-    
-    await query.edit_message_text(text=text, parse_mode='HTML', disable_web_page_preview=False)
+        text = "Perintah tidak dikenal."
+
+    await query.edit_message_text(
+        text=text,
+        parse_mode="HTML",
+        disable_web_page_preview=False,
+        reply_markup=_back_button(),
+    )
