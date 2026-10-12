@@ -14,7 +14,7 @@ FILE_TOPIC_ID = 12345
 COMMAND_TOPIC_ID = 283465  # ID topik untuk mute 10 menit
 
 MUTE_COMMANDS = [
-    "/cuaca", "/dpost", "/xray", "/clash", "/cbfr", "/sbfr", "/flclash",
+    "/cuaca", "/xray", "/clash", "/cbfr", "/sbfr", "/flclash",
     "/cmfa", "/sing", "/sfa", "/yaml", "/hostip", "/worker", "/prayer",
     "/upload", "/revclash", "/notes", "/trial", "/check", "/start"
 ]
