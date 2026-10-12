@@ -1,7 +1,7 @@
 import os
 
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from handlers.aa import init_db as init_limit_db, register_limit_handlers
+from handlers.message_moderation import init_db as init_limit_db, register_limit_handlers
 from handlers.user_store import init_db as init_user_db, add_user, add_chat
 from handlers.help import handle_help, help_callback
 from handlers.info import info_menu, info_callback_handler
