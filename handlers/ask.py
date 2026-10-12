@@ -23,7 +23,7 @@ async def handle_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         response = await asyncio.to_thread(
             requests.post,
             "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"******"},
+            headers={"Authorization": "Bearer " + api_key},
             json={
                 "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
                 "messages": [
@@ -43,7 +43,14 @@ async def handle_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         answer = response.json()["choices"][0]["message"]["content"].strip()
         if not answer:
             raise ValueError("Empty response")
-    except (requests.RequestException, ValueError, KeyError, IndexError):
+    except (
+        requests.RequestException,
+        ValueError,
+        KeyError,
+        IndexError,
+        TypeError,
+        AttributeError,
+    ):
         await update.message.reply_text("Maaf, AI tidak dapat menjawab saat ini.")
         return
 
