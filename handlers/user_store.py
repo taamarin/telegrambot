@@ -17,6 +17,8 @@ def init_db():
         c.execute("CREATE TABLE IF NOT EXISTS stats (key TEXT PRIMARY KEY, value INTEGER)")
         conn.commit()
 
+init_db()
+
 def add_user(user_id):
     with get_conn() as conn:
         conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
