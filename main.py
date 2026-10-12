@@ -3,10 +3,6 @@ import os
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from handlers.aa import init_db as init_limit_db, register_limit_handlers
 from handlers.user_store import init_db as init_user_db, add_user, add_chat
-
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-NOTIFICATION_CHAT_ID = os.getenv("NOTIFICATION_CHAT_ID")
-
 from handlers.help import handle_help, help_callback
 from handlers.info import info_menu, info_callback_handler
 from handlers.stats import handle_botinfo
@@ -30,6 +26,9 @@ from handlers.sing_bfr import handle_bfr_sing
 from handlers.sing_sfa import handle_sfa
 from handlers.xray import handle_xray
 from handlers.xbox import handle_box, handle_box_callback
+
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+NOTIFICATION_CHAT_ID = os.getenv("NOTIFICATION_CHAT_ID")
 
 
 async def notify_startup(application):
@@ -84,6 +83,7 @@ def create_application():
     async def register_user(update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user:
             add_user(update.effective_user.id)
+
     application.add_handler(MessageHandler(filters.ALL, register_user), group=-1)
 
     register_limit_handlers(application)
@@ -98,6 +98,7 @@ def run_bot():
     init_user_db()
     application = create_application()
     application.run_polling(drop_pending_updates=True)
+
 
 if __name__ == "__main__":
     run_bot()

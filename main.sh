@@ -1,6 +1,6 @@
 #!/bin/sh
 
-scripts_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
+scripts_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 pid_file="$scripts_dir/telegram_bot.pid"
 
 RED=''
@@ -24,6 +24,7 @@ print_message() {
 
 read_pid() {
   [ -r "$pid_file" ] || return 1
+  PID=''
   IFS= read -r PID < "$pid_file" || [ -n "${PID:-}" ]
   case "${PID:-}" in
     ''|*[!0-9]*) return 1 ;;
