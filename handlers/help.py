@@ -39,6 +39,7 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         text = """
 <b>User Commands</b>
 ❀ /start — Memulai bot dan menampilkan pesan sambutan.
+❀ /ask — Bertanya kepada AI.
 ❀ /dpost — Mengunduh postingan dari Instagram.
 ❀ /xray — Konversi konfigurasi outbound Xray.
 ❀ /clash — Konversi konfigurasi outbound Clash.
