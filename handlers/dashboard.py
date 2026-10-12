@@ -1,16 +1,32 @@
 import requests
-import time
 import asyncio
+from html import escape
+from urllib.parse import quote
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import ContextTypes
 from handlers._admin import delete_message_after_delay, is_admin
 
-# Konstanta
-MAX_MESSAGE_AGE = 3
-# MIHOMO_API = 'http://192.168.44.1:9090'
 MIHOMO_API = 'http://192.168.1.1:9090'
 API_SECRET = '123456'
 HEADERS = {'Authorization': f'Bearer {API_SECRET}'}
+
+
+API_TIMEOUT = 10
+
+
+async def api_request(method, path, *, params=None, json=None, check_status=True):
+    response = await asyncio.to_thread(
+        requests.request,
+        method,
+        f"{MIHOMO_API}{path}",
+        headers=HEADERS,
+        params=params,
+        json=json,
+        timeout=API_TIMEOUT
+    )
+    if check_status:
+        response.raise_for_status()
+    return response
 
 
 def main_menu_keyboard(proxies):
@@ -31,12 +47,18 @@ def main_menu_keyboard(proxies):
 
 async def get_node_latency(group, node):
     try:
-        delay = requests.get(
-            f"{MIHOMO_API}/proxies/{group}/delay?url=http://www.gstatic.com/generate_204&timeout=3000&name={node}",
-            headers=HEADERS
-        ).json()
+        response = await api_request(
+            "GET",
+            f"/proxies/{quote(group, safe='')}/delay",
+            params={
+                "url": "http://www.gstatic.com/generate_204",
+                "timeout": 3000,
+                "name": node
+            }
+        )
+        delay = response.json()
         return delay.get('delay', 'timeout')
-    except:
+    except (requests.RequestException, ValueError):
         return "error"
 
 
@@ -60,8 +82,13 @@ async def start_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_admin_permission(update, context, is_callback=False):
         return
 
-    proxies = requests.get(f'{MIHOMO_API}/proxies', headers=HEADERS).json()['proxies']
-    reply_markup = main_menu_keyboard(proxies)
+    try:
+        response = await api_request("GET", "/proxies")
+        proxies = response.json()['proxies']
+        reply_markup = main_menu_keyboard(proxies)
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        await update.message.reply_text("Gagal mengambil data dashboard dari Clash.")
+        return
     await update.message.reply_text(
         "Pilih grup proxy atau perintah:",
         reply_markup=reply_markup,
@@ -79,9 +106,17 @@ async def button_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text("Loading...")
 
+    try:
+        await handle_dashboard_action(query, data)
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        await query.edit_message_text("Gagal memproses permintaan dashboard Clash.")
+
+
+async def handle_dashboard_action(query, data):
     if data.startswith("select_"):
         group = data.split("_", 1)[1]
-        group_info = requests.get(f'{MIHOMO_API}/proxies/{group}', headers=HEADERS).json()
+        response = await api_request("GET", f"/proxies/{quote(group, safe='')}")
+        group_info = response.json()
         now_node = group_info.get('now', 'Tidak diketahui')
         nodes = group_info['all']
 
@@ -98,50 +133,75 @@ async def button_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("Kembali", callback_data="back")
         ])
         await query.edit_message_text(
-            text=f"*{group}* ➠ *{now_node}*\nList node:",
+            text=f"<b>{escape(group)}</b> ➠ <b>{escape(str(now_node))}</b>\nList node:",
             reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
 
     elif data.startswith("check_delay_"):
         group = data.split("_", 2)[2]
-        group_info = requests.get(f'{MIHOMO_API}/proxies/{group}', headers=HEADERS).json()
+        response = await api_request("GET", f"/proxies/{quote(group, safe='')}")
+        group_info = response.json()
         nodes = group_info['all']
 
         latencies = await asyncio.gather(*[get_node_latency(group, node) for node in nodes])
-        msg = f"*Delay untuk grup {group}:*\n"
+        msg = f"<b>Delay untuk grup {escape(group)}:</b>\n"
         for node, latency in zip(nodes, latencies):
-            msg += f"❀ {node}: {latency}ms\n"
+            msg += f"❀ {escape(str(node))}: {escape(str(latency))}ms\n"
 
-        await query.edit_message_text(msg, parse_mode="Markdown")
+        await query.edit_message_text(msg, parse_mode="HTML")
 
     elif data.startswith("choose_"):
         _, group, proxy = data.split("_", 2)
-        requests.put(f'{MIHOMO_API}/proxies/{group}', headers=HEADERS, json={"name": proxy})
-        await query.edit_message_text(text=f"Proxy *{group}* ➠ *{proxy}*", parse_mode="Markdown")
+        await api_request(
+            "PUT",
+            f"/proxies/{quote(group, safe='')}",
+            json={"name": proxy}
+        )
+        await query.edit_message_text(
+            text=f"Proxy <b>{escape(group)}</b> ➠ <b>{escape(proxy)}</b>",
+            parse_mode="HTML"
+        )
 
     elif data == "status":
-        proxies = requests.get(f"{MIHOMO_API}/proxies", headers=HEADERS).json()["proxies"]
-        msg = "*Delay semua grup:*\n"
-        for name, item in proxies.items():
-            if item["type"] == "Selector":
-                try:
-                    delay = requests.get(
-                        f"{MIHOMO_API}/proxies/{name}/delay?url=http://www.gstatic.com/generate_204&timeout=3000",
-                        headers=HEADERS
-                    ).json()
-                    delay_time = delay.get('delay', 'timeout')
-                except:
-                    delay_time = "error"
-                msg += f"❀ {name} ({delay_time}ms)\n"
-        await query.edit_message_text(msg, parse_mode="Markdown")
+        response = await api_request("GET", "/proxies")
+        proxies = response.json()["proxies"]
+        groups = [
+            name for name, item in proxies.items()
+            if item["type"] == "Selector"
+        ]
+
+        async def group_latency(name):
+            try:
+                response = await api_request(
+                    "GET",
+                    f"/proxies/{quote(name, safe='')}/delay",
+                    params={
+                        "url": "http://www.gstatic.com/generate_204",
+                        "timeout": 3000
+                    }
+                )
+                return response.json().get('delay', 'timeout')
+            except (requests.RequestException, ValueError):
+                return "error"
+
+        latencies = await asyncio.gather(*(group_latency(name) for name in groups))
+        msg = "<b>Delay semua grup:</b>\n"
+        for name, delay_time in zip(groups, latencies):
+            msg += f"❀ {escape(str(name))} ({escape(str(delay_time))}ms)\n"
+        await query.edit_message_text(msg, parse_mode="HTML")
 
     elif data == "reload":
-        requests.put(f"{MIHOMO_API}/configs?force=true", headers=HEADERS, json={"path": "", "payload": ""})
+        await api_request(
+            "PUT",
+            "/configs",
+            params={"force": "true"},
+            json={"path": "", "payload": ""}
+        )
         await query.edit_message_text("Config berhasil di-reload.")
 
     elif data == "restart":
-        r = requests.post(f"{MIHOMO_API}/restart", headers=HEADERS)
+        r = await api_request("POST", "/restart")
         if r.status_code == 200:
             await asyncio.sleep(2)
             await query.edit_message_text("Restart selesai.")
@@ -149,7 +209,7 @@ async def button_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("Gagal me-restart.")
 
     elif data == "upgrade":
-        r = requests.post(f"{MIHOMO_API}/upgrade", headers=HEADERS)
+        r = await api_request("POST", "/upgrade", check_status=False)
         if r.status_code == 200:
             await asyncio.sleep(3)
             await query.edit_message_text("Berhasil diperbarui.")
@@ -159,10 +219,15 @@ async def button_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("Gagal memperbarui.")
 
     elif data == "version":
-        version = requests.get(f"{MIHOMO_API}/version", headers=HEADERS).json()
-        await query.edit_message_text(f"`{version['version']}`", parse_mode="Markdown")
+        response = await api_request("GET", "/version")
+        version = response.json()
+        await query.edit_message_text(
+            f"<code>{escape(str(version['version']))}</code>",
+            parse_mode="HTML"
+        )
 
     elif data == "back":
-        proxies = requests.get(f'{MIHOMO_API}/proxies', headers=HEADERS).json()['proxies']
+        response = await api_request("GET", "/proxies")
+        proxies = response.json()['proxies']
         reply_markup = main_menu_keyboard(proxies)
         await query.edit_message_text("Kembali ke menu utama:", reply_markup=reply_markup)
