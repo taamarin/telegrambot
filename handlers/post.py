@@ -1,4 +1,3 @@
-import instaloader
 import os
 import re
 from urllib.parse import urlparse
@@ -42,6 +41,7 @@ async def handle_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     arg = context.args[0].strip()
+    import instaloader
     loader = instaloader.Instaloader(download_comments=False, save_metadata=False)
     target_folder = get_new_folder()
     loader.dirname_pattern = target_folder
